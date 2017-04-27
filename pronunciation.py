@@ -1,11 +1,11 @@
 """
 Get the arpabet pronunciation of a set of words, courtesy
-of the CMU Sphinx pronunciation dictionary (and their 
+of the CMU Sphinx pronunciation dictionary (and their
 tools to determine the pronunciation of unknown words).
 
 Usage: create a pronounce object, add words to pronounce object
        run .p()
-       
+
 Command line: python pronunciation.py list of words to pronounce
 
 Copyright 2013 - Steven Rubin - srubin@cs.berkeley.edu
@@ -18,8 +18,9 @@ import re
 import string
 
 class Pronounce(object):
-    url = "http://www.speech.cs.cmu.edu/cgi-bin/tools/lmtool/run"
+    url = "http://www.speech.cs.cmu.edu/cgi-bin/tools/logios/lextool.pl"
     dict_re = re.compile(r"\d+\.dic")
+    hidden_dict_url_re = re.compile(r"<!-- DICT (http:\/\/www\.speech\.cs\.cmu\.edu\/tools\/product\/(\d+)_(\d+)\/(\d+)\.dict)  -->")
     other_pr = re.compile(r"(.*)\(\d+\)$")
     vowel_re = re.compile(r"AA|AE|AH|AO|AW|AY|EH|ER|EY|IH|IY|OW|OY|UH|UW")
 
@@ -34,20 +35,20 @@ class Pronounce(object):
 
     def p(self, add_fake_stress=False):
         w_upper = [unicode(w).upper() for w in self.words]
-        
+
         punc_map = dict((ord(c), None) for c in string.punctuation)
         w_nopunc = [s.translate(punc_map) for s in w_upper]
 
-        file = {'corpus': ('words.txt', " ".join(w_nopunc))}
+        file = {'wordfile': ('words.txt', " ".join(w_nopunc))}
 
         res = requests.post(Pronounce.url,
                             data={"formtype": "simple"},
                             files=file, allow_redirects=True)
         base_url = res.url
         text = res.text
-        dict_path = Pronounce.dict_re.search(text).group(0)
-        res = requests.get(base_url + dict_path)
-        
+        dict_path = Pronounce.hidden_dict_url_re.search(text).group(1)
+        res = requests.get(dict_path)
+
         # generate output dict
         pronunciations = {}
         for line in res.text.split('\n'):
@@ -59,10 +60,10 @@ class Pronounce(object):
                 idx = w_nopunc.index(pr[0])
                 orig = self.words[idx]
                 upword = w_upper[idx]
-                
+
                 if add_fake_stress:
                     pr[1] = re.sub(Pronounce.vowel_re, r"\g<0>0", pr[1])
-                
+
                 if orig in pronunciations:
                     pronunciations[orig].append(pr[1])
                 else:
